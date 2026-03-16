@@ -1,50 +1,15 @@
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
-
-# This workflow will build, test, sign and package a WPF or Windows Forms desktop application
-# built on .NET Core.
-# To learn how to migrate your existing application to .NET Core,
-# refer to https://docs.microsoft.com/en-us/dotnet/desktop-wpf/migration/convert-project-from-net-framework
-#
-# To configure this workflow:
-#
-# 1. Configure environment variables
-# GitHub sets default environment variables for every workflow run.
-# Replace the variables relative to your project in the "env" section below.
-#
-# 2. Signing
-# Generate a signing certificate in the Windows Application
-# Packaging Project or add an existing signing certificate to the project.
-# Next, use PowerShell to encode the .pfx file using Base64 encoding
-# by running the following Powershell script to generate the output string:
-#
-# $pfx_cert = Get-Content '.\SigningCertificate.pfx' -Encoding Byte
-# [System.Convert]::ToBase64String($pfx_cert) | Out-File 'SigningCertificate_Encoded.txt'
-#
-# Open the output file, SigningCertificate_Encoded.txt, and copy the
-# string inside. Then, add the string to the repo as a GitHub secret
-# and name it "Base64_Encoded_Pfx."
-# For more information on how to configure your signing certificate for
-# this workflow, refer to https://github.com/microsoft/github-actions-for-desktop-apps#signing
-#
-# Finally, add the signing certificate password to the repo as a secret and name it "Pfx_Key".
-# See "Build the Windows Application Packaging project" below to see how the secret is used.
-#
-# For more information on GitHub Actions, refer to https://github.com/features/actions
-# For a complete CI/CD sample to get started with GitHub Action workflows for Desktop Applications,
-# refer to https://github.com/microsoft/github-actions-for-desktop-apps
-
 name: build
-env:
-  DWAppVersion: v1.6.1r
-permissions:
-  contents: write
 
 on:
   push:
-    branches: [ "release" ]
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  DWAppVersion: ${{ github.ref_name }}
 
 jobs:
 
@@ -55,8 +20,7 @@ jobs:
         configuration: [Release]
         platform: [x64, arm64]
 
-    runs-on: windows-latest  # For a list of available runner types, refer to
-                             # https://help.github.com/en/actions/reference/workflow-syntax-for-github-actions#jobsjob_idruns-on
+    runs-on: windows-latest
 
     env:
       Solution_Name: DynamicWin.sln
@@ -67,7 +31,6 @@ jobs:
       with:
         fetch-depth: 0
 
-    # Install the .NET Core workload
     - name: Install .NET Core
       uses: actions/setup-dotnet@v4
       with:
@@ -76,15 +39,12 @@ jobs:
     - name: Install Inno Setup
       run: choco install innosetup --no-progress -y
 
-    # Add  MSBuild to the PATH: https://github.com/microsoft/setup-msbuild
     - name: Setup MSBuild.exe
       uses: microsoft/setup-msbuild@v2
 
-    # Execute all unit tests in the solution
     - name: Execute unit tests
       run: dotnet test
 
-    # Restore the application to populate the obj folder with RuntimeIdentifiers
     - name: Restore the application
       run: msbuild $env:Solution_Name /t:Restore /p:Configuration=$env:Configuration
       env:
@@ -92,7 +52,7 @@ jobs:
 
     - name: Publish application
       run: msbuild DynamicWin/DynamicWin.csproj `
-           /t:Publish `  
+           /t:Publish `
            /p:Configuration=Release `
            /p:Platform=${{ matrix.platform }} `
            /p:RuntimeIdentifier=win-${{ matrix.platform }} `
@@ -145,9 +105,12 @@ jobs:
 
   release:
     needs: build
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Download all artefacts
         uses: actions/download-artifact@v4
         with:
@@ -155,49 +118,78 @@ jobs:
 
       - name: Recalculate hashes
         id: hashes
-        shell: pwsh
+        shell: bash
         run: |
-          $x64 = Get-ChildItem -Recurse artifacts -Filter "DynamicWinSetup-x64.exe"
-          $arm = Get-ChildItem -Recurse artifacts -Filter "DynamicWinSetup-arm64.exe"
+          x64_installer=$(find artifacts -name "DynamicWinSetup-x64.exe" | head -1)
+          arm64_installer=$(find artifacts -name "DynamicWinSetup-arm64.exe" | head -1)
 
-          $sha256_x64 = (Get-FileHash $x64.FullName -Algorithm SHA256).Hash
-          $md5_x64    = (Get-FileHash $x64.FullName -Algorithm MD5).Hash
+          sha256_x64=$(sha256sum "$x64_installer" | awk '{print $1}')
+          md5_x64=$(md5sum "$x64_installer" | awk '{print $1}')
 
-          $sha256_arm = (Get-FileHash $arm.FullName -Algorithm SHA256).Hash
-          $md5_arm    = (Get-FileHash $arm.FullName -Algorithm MD5).Hash
+          sha256_arm64=$(sha256sum "$arm64_installer" | awk '{print $1}')
+          md5_arm64=$(md5sum "$arm64_installer" | awk '{print $1}')
 
-          "sha256_x64=$sha256_x64" >> $env:GITHUB_OUTPUT
-          "md5_x64=$md5_x64" >> $env:GITHUB_OUTPUT
-          "sha256_arm64=$sha256_arm" >> $env:GITHUB_OUTPUT
-          "md5_arm64=$md5_arm" >> $env:GITHUB_OUTPUT
+          echo "sha256_x64=${sha256_x64}" >> "$GITHUB_OUTPUT"
+          echo "md5_x64=${md5_x64}" >> "$GITHUB_OUTPUT"
+          echo "sha256_arm64=${sha256_arm64}" >> "$GITHUB_OUTPUT"
+          echo "md5_arm64=${md5_arm64}" >> "$GITHUB_OUTPUT"
 
-      - name: Create Github Release
-        uses: ncipollo/release-action@v1
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ github.ref_name }}"
+
+          x64_installer=$(find artifacts -name "DynamicWinSetup-x64.exe" | head -1)
+          arm64_installer=$(find artifacts -name "DynamicWinSetup-arm64.exe" | head -1)
+
+          gh release create "$TAG" \
+            --repo "${{ github.repository }}" \
+            --title "DynamicWin-Legacy $TAG" \
+            --notes "# What's new in $TAG
+
+          ### Continued support:
+          - Your support truly means a lot to me as I continue to maintain DynamicWin-Legacy. Keep an eye out on this repository whenever a new release comes out.
+          - Feel free to contribute to this project as you wish. Open any issues on the issues page if you encounter any bugs.
+
+          ## Checksums
+
+          ### x64
+          SHA256: \`${{ steps.hashes.outputs.sha256_x64 }}\`
+          MD5: \`${{ steps.hashes.outputs.md5_x64 }}\`
+
+          ### arm64
+          SHA256: \`${{ steps.hashes.outputs.sha256_arm64 }}\`
+          MD5: \`${{ steps.hashes.outputs.md5_arm64 }}\`" \
+            "$x64_installer#DynamicWinSetup-x64.exe" \
+            "$arm64_installer#DynamicWinSetup-arm64.exe"
+
+  update-version:
+    needs: release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout updater branch
+        uses: actions/checkout@v4
         with:
-          tag: ${{ env.DWAppVersion }}
-          name: DynamicWin-Legacy ${{ env.DWAppVersion }}
-          body: |
-            # What's new in ${{ env.DWAppVersion }}
+          ref: updater
+          fetch-depth: 0
 
-            ### Continued support:
-            - Your support truly means a lot to me as I continue to maintain DynamicWin-Legacy. Keep an eye out on this repository whenever a new release comes out.
-            - Feel free to contribute to this project as you wish. Open any issues on the issues page if you encounter any bugs.
+      - name: Update version-release JSON files
+        run: |
+          TAG="${{ github.ref_name }}"
+          REPO="${{ github.repository }}"
+          X64_URL="https://github.com/${REPO}/releases/download/${TAG}/DynamicWinSetup-x64.exe"
+          ARM64_URL="https://github.com/${REPO}/releases/download/${TAG}/DynamicWinSetup-arm64.exe"
 
-            ## Checksums
+          printf '{\n  "version": "%s",\n  "downloadUri": "%s",\n  "releaseStream": "release"\n}\n' \
+            "$TAG" "$X64_URL" > version-release-x64.json
 
-            ### x64
-            SHA256: `${{ steps.hashes.outputs.sha256_x64 }}`
-            MD5: `${{ steps.hashes.outputs.md5_x64 }}`
+          printf '{\n  "version": "%s",\n  "downloadUri": "%s",\n  "releaseStream": "release"\n}\n' \
+            "$TAG" "$ARM64_URL" > version-release-arm64.json
 
-            ### arm64
-            SHA256: `${{ steps.hashes.outputs.sha256_arm64 }}`
-            MD5: `${{ steps.hashes.outputs.md5_arm64 }}`
-
-          artifacts: |
-            artifacts/**/DynamicWinSetup-x64.exe
-            artifacts/**/DynamicWinSetup-arm64.exe
-
-          draft: true
-          prerelease: false
-          skipIfReleaseExists: true
-          replacesArtifacts: true
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add version-release-x64.json version-release-arm64.json
+          git commit -m "Update version-release to ${TAG}"
+          git push origin updater
