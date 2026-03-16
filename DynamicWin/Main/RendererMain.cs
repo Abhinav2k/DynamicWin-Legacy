@@ -190,10 +190,6 @@ namespace DynamicWin.Main
 
         private void OnKeyRegistered(Keys key, KeyModifier modifier)
         {
-            if (key == Keys.LWin && modifier.isCtrlDown)
-            {
-                islandObject.hidden = !islandObject.hidden;
-            }
 
             if ((key == Keys.VolumeDown || key == Keys.VolumeMute || key == Keys.VolumeUp) && PopupOptions.saveData.volumePopup)
             {
@@ -274,6 +270,12 @@ namespace DynamicWin.Main
                 if (MenuManager.Instance.ActiveMenu is DropFileMenu && !MainForm.Instance.isDragging)
                     MenuManager.OpenMenu(Res.HomeMenu);
             }
+
+
+            bool isNeeded = false;
+            if (CursorPosition.Y < 50) isNeeded = true;
+            if (!(MenuManager.Instance.ActiveMenu is HomeMenu)) isNeeded = true;
+            MainIsland.hidden = !isNeeded;
 
             islandObject.UpdateCall(DeltaTime);
 
