@@ -44,7 +44,7 @@ namespace DynamicWin.Utils
             };
 
             string json = await client.GetStringAsync(
-                $"https://raw.githubusercontent.com/59xa/DynamicWin-Legacy/refs/heads/updater/{file}{suffix}.json");
+                $"https://raw.githubusercontent.com/Abhinav2k/DynamicWin-Legacy/refs/heads/updater/{file}{suffix}.json");
 
 #if DEBUG
             Debug.WriteLine(json);

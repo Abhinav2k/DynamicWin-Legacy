@@ -275,7 +275,7 @@ namespace DynamicWin.Main
             bool isNeeded = false;
             if (CursorPosition.Y < 50) isNeeded = true;
             if (!(MenuManager.Instance.ActiveMenu is HomeMenu)) isNeeded = true;
-            MainIsland.hidden = !isNeeded;
+            islandObject.hidden = !isNeeded;
 
             islandObject.UpdateCall(DeltaTime);
 
