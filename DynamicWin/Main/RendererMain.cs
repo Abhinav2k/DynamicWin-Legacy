@@ -14,6 +14,8 @@ using DynamicWin.UI.UIElements;
 using DynamicWin.Utils;
 using DynamicWin.WPFBinders;
 using SkiaSharp;
+using Windows.Media.Control;
+using System.Timers;
 
 namespace DynamicWin.Main
 {
@@ -23,6 +25,9 @@ namespace DynamicWin.Main
         public IslandObject MainIsland => islandObject;
         private List<UIObject> objects => MenuManager.Instance.ActiveMenu.UiObjects;
 
+        // Media hide timer
+        private Timer mediaHideTimer;
+        private bool wasMediaPlaying = false;
         // Shadow mask for island
         private BottomMask? islandShadow;
         private bool lastIslandShadowSetting = Settings.ToggleIslandShadow;
@@ -152,6 +157,10 @@ namespace DynamicWin.Main
                 });
             }
 
+            mediaHideTimer = new Timer(2000);
+            mediaHideTimer.AutoReset = false;
+            // No need to subscribe to elapsed, we'll just check if it's running
+
             isInitialized = true;
         }
 
@@ -275,7 +284,35 @@ namespace DynamicWin.Main
             bool isNeeded = false;
             if (CursorPosition.Y < 50) isNeeded = true;
             if (!(MenuManager.Instance.ActiveMenu is HomeMenu)) isNeeded = true;
-            islandObject.hidden = !isNeeded;
+
+            // Check existing media detection service
+            var playbackStatus = DynamicWin.Utils.MediaThumbnailService.Instance?.LastPlaybackStatus;
+            bool isMediaPlaying = playbackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+            if (isMediaPlaying) isNeeded = true;
+
+            if (!isMediaPlaying && wasMediaPlaying)
+            {
+                mediaHideTimer?.Start();
+            }
+            if (isMediaPlaying && !wasMediaPlaying)
+            {
+                mediaHideTimer?.Stop();
+                islandObject.hidden = false;
+            }
+            wasMediaPlaying = isMediaPlaying;
+
+            if (isNeeded)
+            {
+                islandObject.hidden = false;
+                mediaHideTimer?.Stop();
+            }
+            else if (!isMediaPlaying)
+            {
+                if (mediaHideTimer != null && !mediaHideTimer.Enabled)
+                {
+                    islandObject.hidden = true;
+                }
+            }
 
             islandObject.UpdateCall(DeltaTime);
 

@@ -124,11 +124,11 @@ namespace DynamicWin.UI.UIElements
             else
             {
                 scaleSecondOrder.SetValues(secondOrderValuesContract[0], secondOrderValuesContract[1], secondOrderValuesContract[2]);
-                Size = scaleSecondOrder.Update(deltaTime, new Vec2(500, 15));
+                Size = scaleSecondOrder.Update(deltaTime, new Vec2(0, 0));
                 LocalPosition.Y = Mathf.Lerp(LocalPosition.Y, -Size.Y / 1.5f, 25f * deltaTime);
             }
 
-            MainForm.Instance.Opacity = hidden ? 0.85f : 1f;
+            MainForm.Instance.Opacity = Mathf.Lerp((float)MainForm.Instance.Opacity, hidden ? 0f : 1f, 15f * deltaTime);
 
             dropShadowStrength = Mathf.Lerp(dropShadowStrength, IsHovering ? 0.75f : 0.25f, 10f * deltaTime);
             dropShadowSize = Mathf.Lerp(dropShadowSize, IsHovering ? 35f : 7.5f, 10f * deltaTime);
