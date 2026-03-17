@@ -16,9 +16,6 @@
 > [!NOTE]
 > This repository holds the legacy code and releases for DynamicWin developed by [FlorianButz](https://github.com/FlorianButz), and is maintained by [59xa](https://github.com/59xa). Please do not report issues and missing features in this repository regarding version 2.0 as this repository only accepts version 1.0 issues. For version 2.0 releases, click [here](https://github.com/FlorianButz/DynamicWin).
 
-> [!WARNING]
-> This is a legacy application that is being maintained by one developer. Do not expect most features to be fixed whatsoever. However, this does not mean groundbreaking issues and feature requests will be turned down immediately. Open an issue ticket for a new feature or an existing issue, they will be added/fixed eventually. 
-
 ### What is it?
 A [Dynamic Island](https://support.apple.com/de-de/guide/iphone/iph28f50d10d/ios) inspired Windows App that brings in a bunch of features like widgets or a file tray that works like a clipboard.
 Similar to dynamic notches that you can find on macOS like [NotchNook](https://lo.cafe/notchnook), this application brings the concept on Windows devices to life.
